@@ -1,0 +1,227 @@
+
+#Question 2
+```{r}
+library(mosaic)
+library(ggplot2)
+library(foreach)
+```
+
+```{r}
+greenbuildings=read.csv('greenbuildings.csv')
+View(greenbuildings)
+attach(greenbuildings)
+detach(greenbuildings)
+
+names(greenbuildings)
+
+```
+
+
+```{r}
+#### 15 stories + green + over 250,000 ####
+mask=greenbuildings$stories>=15 #keeps buildings with exactly 15 stories
+fifteen_stories=greenbuildings[mask,]
+str(fifteen_stories)
+
+mask2=fifteen_stories$green_rating==1
+fifteen_green=fifteen_stories[mask2,]#buildings with 15 stories and green ratings
+str(fifteen_green)
+
+mask5=fifteen_green$size>=250000
+fifteen_green_size=fifteen_green[mask5,] #15 + green + greater than 250,000
+
+
+#### less than 15, not green, less than 250,000
+mask3=greenbuildings$stories<15
+nofifteen=greenbuildings[mask3,]
+
+mask4=nofifteen$green_rating<1
+nofifteen_green=nofifteen[mask4,] #less than 15 + no green buildings
+
+
+mask7=nofifteen_green$size<250000
+nofifteen_green=nofifteen_green[mask7,]#less than 15, no green, less than 250,000
+
+```
+
+```{r}
+median(fifteen_green_size$Rent)#35.71 -- 25.25 #if it equaled to 15 exactly
+median(nofifteen_green$Rent)#25
+```
+
+A new data frame was created consisting of the buildings that had only green ratings, had 15 or more stories, and were 250,000 square feet or more. In order to gain a better understanding about whether the investment would be worth it, we'd needed to narrow down the information to certain buildings that had similar features. The excel Guru only took into account green vs. not green. After taking the median, it seems as though the Excel guru is overestimating. The median of green buildings are actually 25.2 when we take all these variables into consideration. However, if we were to take the buildings with exactly 15 (not equal to or more), we'd see that the median rises to 35.71, resulting in over 2 million dollars of revenue. There seems to be a large amount of green buildings bringing down the median price in rent. Although this result in revenue seems favorable, there are only 6 of these buildings in the sample. Once again emphasizing the stats Guru over generalization and simplification of the data.
+
+
+```{r}
+
+names(greenbuildings)
+
+lm.fit=lm(Rent~.,data=fifteen_green_size)
+summary(lm.fit) #regression model 
+
+green.f=factor(fifteen_green_size$green_rating, levels=c(0,1), labels=c("Not Green", "Green"))
+
+class_a.f=factor(fifteen_green_size$class_a, levels=c(0,1), labels=c("Not Class A", "Class A"))
+
+class_b.f=factor(fifteen_green_size$class_a, levels=c(0,1), labels=c("Not Class B", "Class B"))
+
+amenities.f=factor(fifteen_green_size$amenities, levels=c(0,1),labels=c("No Amenities", "Amenities"))
+
+amenities.f2=factor(nofifteen_green$amenities, levels=c(0,1),labels=c("No Amenities", "Amenities"))
+
+
+
+```
+
+The excel Guru needs to improve his analysis by making several variables in the data into factors. He is generalizing the situatoin because One can't solely consider one variable (such as the green aspect) to be the only factor that makes an impact on rent. With the new data frame (15 stories, green, and over 250,000 sq ft), a regression model displayed the statistically significant variables: age, amenities, hd_total07, precipitation, and cluster_rent. Below are several plots that show the importance of these variables on rent and compare the impacts of several variables on the two data sets. 
+The buildings that are in the not green data set have less amenities than that of the buildings that are clustering into the green set. If you take a look at the graphs below, you can see that there are many in the green set that have amenities. So, in this case, we don't know for certain if the market or rent price is being driven by amenities or the "green" aspect of the building itself. 
+
+```{r}
+
+xyplot(Rent~age,data=fifteen_green_size)
+
+xyplot(Rent~age,data=nofifteen_green)
+
+xyplot(Rent~leasing_rate|class_a.f,data=fifteen_green_size)
+
+xyplot(Rent~leasing_rate|class_b.f,data=fifteen_green_size)
+
+qplot(Rent, data=fifteen_green_size, fill=amenities.f, alpha=I(.5), binwidth=20, main="Amenities in Green Set")
+
+qplot(Rent, data=nofifteen_green, fill=amenities.f2, alpha=I(.5), binwidth=10, main="Amenities in the Not Green Set")
+
+densityplot(~fifteen_green_size$cluster_rent, main="Cluster Rent", xlab="Green-Cluster Rent")
+
+densityplot(~nofifteen_green$cluster_rent, main="Cluster Rent", xlab="Not Green-Cluster Rent")
+
+median(fifteen_green_size$cluster_rent)
+median(nofifteen_green$cluster_rent)
+```
+
+Assuming the new building would be considered "class a", the excel Guru needs to take variability in rent into account for this factor. Additionally, the median cluster rent for those in the green set are much lower than those in the not green set. Cluster rent is based off of local market, so it'd be beneficial to figure out the areas of these different clusters in order to compare it to the Austin housing market.  
+His conclusion can be improved in several ways, as explained.  He needs to improve his numbers and have more information to back up his claims since there are more variables that seem to have an association with rent than soley whether or not the building is green certified, which is important consideration to take into account since the investment is so large. 
+
+#Question 3
+There are 5 asset classes: US domestic equities, US Treasury Bonds, Investment-grade corporate bonds, Emerging-market equities and Real estate. The two most risky of the assets are emerging-market equities and real estate. For the aggressive portfolio, we did an even 50/50 split of those two asset classes. US domestic equities, US Treasury bonds and Investment-grade corporate bonds are the most risk averse. For the safe portfolio we used 30% domestic equities, 40% Treasury bonds and 30% Investment-grade corporate bonds. I used a 30/40/30 split to make it possible to hedge against risk by not losing too much from any part of my portfolio. 
+```{r }
+#Bootstrapping
+
+library(fImport)
+library(mosaic)
+library(foreach)
+
+
+#Create Portfolio
+Portfolio = c("SPY", "TLT", "LQD", "EEM", "VNQ")
+Prices = yahooSeries(Portfolio, from='2011-08-07', to='2016-08-07')
+
+
+YahooPricesToReturns = function(series) {
+	cols = grep('Adj.Close', colnames(series))
+	closingprice = series[,cols]
+	N = nrow(closingprice)
+	percentreturn = as.data.frame(closingprice[2:N,])/as.data.frame(closingprice[1:(N-1),]) - 1
+	names = strsplit(colnames(percentreturn), '.', fixed=TRUE)
+	names = lapply(names, function(x) return(paste0(x[1], ".PctReturn")))
+	colnames(percentreturn) = names
+	as.matrix(na.omit(percentreturn))
+}
+
+Returns = YahooPricesToReturns(Prices)
+pairs(Returns)
+cor(Returns)
+
+set.seed(23)
+even_split = foreach(i=1:5000, .combine='rbind') %do%{
+  wealth = 100000
+  weights = c(.2, .2, .2, .2, .2)
+  holdings = weights * wealth
+  days = 20
+  tracker = rep(0,days)
+  for(today in 1:days){
+    today_return = resample(Returns, 1, orig.ids=FALSE)
+    holdings = holdings + holdings*today_return
+    wealth = sum(holdings)
+    tracker[today] = wealth
+  }
+  wealth
+  plot(tracker)
+  tracker
+}
+hist(even_split[,days] - 100000)
+quantile(even_split[,days],0.05) - 100000
+
+set.seed(23)
+safe = foreach(i=1:5000, .combine='rbind') %do%{
+  wealth = 100000
+  weights = c(.3, .4, .3, .0, .0)
+  holdings = weights * wealth
+  days = 20
+  tracker = rep(0, days)
+  for(today in 1:days){
+    today_return = resample(Returns, 1, orig.ids=FALSE)
+    holdings = holdings + holdings*today_return
+    wealth = sum(holdings)
+    tracker[today] = wealth
+  }
+  wealth
+  plot(tracker)
+  tracker
+}
+hist(safe[,days] - 100000)
+quantile(safe[,days],0.05) - 100000
+
+set.seed(23)
+risk = foreach(i=1:5000, .combine='rbind') %do% {
+  wealth = 100000
+  weights = c(.0, .0, .0, .5, .5)
+  holdings = weights * wealth
+  days = 20
+  tracker = rep(0, days)
+  for(today in 1:days){
+    today_return = resample(Returns, 1, orig.ids=FALSE)
+    holdings = holdings + holdings*today_return
+    wealth = sum(holdings)
+    tracker[today] = wealth
+  }
+  wealth
+
+```
+
+
+#Question 4
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r }
+library(ggplot2)
+mydata = read.csv('social_marketing.csv')
+mydata = mydata[,-1]
+str(mydata)
+
+J = scale(mydata, center = TRUE, scale = TRUE)
+
+H20 = kmeans(J, 5, nstart = 55)
+
+df = data.frame(J)
+df$cluster = factor(H20$cluster)
+ggplot(data = df, aes(x=food, y=family, color=cluster)) + geom_point()
+print(apply(H20$centers,1,function(x) colnames(J)[order(x, decreasing = TRUE)[1:6]]))
+ggplot(data = df, aes(x=politics, y=religion, color=cluster)) + geom_point()
+print(apply(H20$centers,1,function(x) colnames(J)[order(x, decreasing = TRUE)[1:6]]))
+ggplot(data = df, aes(x=fashion, y=beauty, color=cluster)) + geom_point()
+print(apply(H20$centers,1,function(x) colnames(J)[order(x, decreasing = TRUE)[1:6]]))
+ggplot(data = df, aes(x=online_gaming, y=college_uni, color=cluster)) + geom_point()
+print(apply(H20$centers,1,function(x) colnames(J)[order(x, decreasing = TRUE)[1:6]]))
+```
+
+
+We divided the data into 5 market segments, which are actually clusters where the 5 most talked about topics are employed in each. For the first plot,  we arbitrarily chose the two variables of interest to be food and family. We took twitter users from each these 5 clusters, separating them by color and plotting them in a scatterplot with food on the x-axis and family on the y-axis. This arrangement enabled us to see how much each user in each cluster talked about one of the two variables in relation to another.  An interesting observation was that cluster 2 had by far the highest tweets about both food and family among users, with most of the dots located in the upper right hand corner of the plot. This would make sense, as both food and family are among the 5 most talked about variables in cluster 2. For the plot we obtained when running on a religion (y axis) and politics (x axis) scatterplot, we obtained a different cluster distribution. Cluster 4 talked the most about religion by far, but very little about politics. By contrast, cluster 2 talked the most about politicis, but not particularly much about religion. This is once again logically explained by the fact that religion is the most talked about subject in cluser 4, whereas politics is most frequently mentioned in cluster 2. We included more models, each with their own set of clusters and plots indicating which topics are most popular among which clusters. The model thus allows us to find useful insights regarding the most popular subjects among each cluster, enabling the company to adjust their marketing campaigns accordingly per market segment. 
